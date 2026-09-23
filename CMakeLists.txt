@@ -18,6 +18,10 @@ FetchContent_MakeAvailable(spdlog)
 
 add_executable(qt-hash-dijkstra
     main.cpp
+    StarAdder.h
+    StarAdder.cpp
+    GridWindow.h
+    GridWindow.cpp
 )
 
 target_link_libraries(qt-hash-dijkstra PRIVATE Qt6::Widgets spdlog::spdlog)
