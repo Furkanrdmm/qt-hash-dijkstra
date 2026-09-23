@@ -24,8 +24,6 @@ GridWindow::GridWindow() {
         QVBoxLayout *mainLayout = new QVBoxLayout(this);
         QGridLayout *gridLayout = new QGridLayout();
 
-        int gridSize = 10;
-
         for (int i = 0; i < gridSize; ++i) {
             for (int j = 0; j < gridSize; ++j) {
                 QPushButton* button = new QPushButton();
@@ -104,18 +102,23 @@ void GridWindow::dijkstraAlgorithm(int startKey) {
         int u = pq.top().second;
         pq.pop();
 
-        int directions[4] = {-1, 1, -10, 10}; // Hareket yönleri için bir dizi tanımlandı.
-        for (int i = 0; i < 4; ++i) {
-            int direction = directions[i]; // Her döngüde farklı bir yönü alıyoruz.
-            int v = u + direction;
+        // Komşular: sol, sağ, yukarı, aşağı. Satır kenarındaki bir hücreden
+        // "sağa" gidince bir alt satırın başına atlamamak için satır/sütun
+        // sınırları kontrol ediliyor.
+        int row = u / gridSize;
+        int col = u % gridSize;
+        QList<int> neighbors;
+        if (col > 0)            neighbors.append(u - 1);
+        if (col < gridSize - 1) neighbors.append(u + 1);
+        if (row > 0)            neighbors.append(u - gridSize);
+        if (row < gridSize - 1) neighbors.append(u + gridSize);
 
-            if (buttonHash.contains(v)) {
-                int weight = 1;
-                if (distances[u] + weight < distances[v]) {
-                    distances[v] = distances[u] + weight;
-                    previous[v] = u;
-                    pq.push({distances[v], v});
-                }
+        for (int v : neighbors) {
+            int weight = 1;
+            if (distances[u] + weight < distances[v]) {
+                distances[v] = distances[u] + weight;
+                previous[v] = u;
+                pq.push({distances[v], v});
             }
         }
     }

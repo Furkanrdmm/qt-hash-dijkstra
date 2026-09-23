@@ -28,6 +28,7 @@ private:
     QHash<int, QPushButton*> buttonHash;  // arayüz: sadece ana thread kullanır
     QHash<int, bool> stars;               // veri: hangi hücrede yıldız var
     QMutex starsMutex;                    // stars tablosunu thread'ler arasında korur
+    int gridSize = 10;
     int threadCount = 3;
     int finishedThreads = 0;
     std::shared_ptr<spdlog::logger> logger;
