@@ -148,13 +148,14 @@ void GridWindow::dijkstraAlgorithm(int startKey) {
         if (distances[starKey] == INF) {
             result += QString("0'dan %1'e ulaşım yok. \n").arg(starKey);
         } else {
-            QString path;
+            QStringList pathNodes;
             int current = starKey;
             while (current != startKey && current != -1) {
-                path.prepend(QString::number(current) + "->");
+                pathNodes.prepend(QString::number(current));
                 current = previous[current];
             }
-            path.prepend(QString::number(startKey));
+            pathNodes.prepend(QString::number(startKey));
+            QString path = pathNodes.join("->");
             result += QString("0'dan %1'e olan mesafe =%2 || Yolu:%3\n")
                           .arg(starKey)
                           .arg(distances[starKey])
