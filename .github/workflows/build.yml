@@ -1,0 +1,37 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Qt kurulumu
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.2'
+
+      - name: Derleme
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j
+
+      - name: Uygulamayı çalıştırıp ekran görüntüsü alma
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb imagemagick libxcb-cursor0
+          cd build
+          xvfb-run -s "-screen 0 800x900x24" bash -c './qt-hash-dijkstra & sleep 8; import -window root ../screenshot.png; kill %1'
+          cd ..
+          convert screenshot.png -trim +repage screenshot.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-and-logs
+          path: |
+            screenshot.png
+            build/logs/
