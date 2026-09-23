@@ -19,6 +19,11 @@ GridWindow::GridWindow() {
         logger->set_level(spdlog::level::info);
         error_logger->set_level(spdlog::level::err);
 
+        // spdlog varsayılan olarak yazdıklarını bellekte biriktirir; dosyayı
+        // program içinden okuyabilmek için her satır hemen diske yazılıyor.
+        logger->flush_on(spdlog::level::info);
+        error_logger->flush_on(spdlog::level::err);
+
         logger->warn("==== Yeni loglama işlemi başladı ====");
 
         QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -42,8 +47,6 @@ GridWindow::GridWindow() {
         textEdit = new QTextEdit();
         textEdit->setFixedHeight(200);
         mainLayout->addWidget(textEdit);
-
-        loadLogFile("logs/my_log.txt");
 
         setLayout(mainLayout);
 
@@ -79,6 +82,9 @@ void GridWindow::onStarsAdded() {
     searchStars(30);
 
     deleteStars(75);
+
+    // Bu çalıştırmanın uyarıları ancak arama/silme işlemlerinden sonra oluşur
+    loadLogFile("logs/my_log.txt");
     dijkstraAlgorithm(0);
 }
 
