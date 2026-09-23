@@ -35,6 +35,7 @@ GridWindow::GridWindow() {
 
                 int key = i * gridSize + j;
                 buttonHash.insert(key, button);
+                stars.insert(key, false);
             }
         }
 
@@ -49,10 +50,13 @@ GridWindow::GridWindow() {
         setLayout(mainLayout);
 
         int count = 30;
-        int threadCount = 1;
         for (int i = 0; i < threadCount; ++i) {
-            StarAdder* staradder = new StarAdder(&buttonHash, count / threadCount, i + 1, logger, error_logger);
+            StarAdder* staradder = new StarAdder(&stars, &starsMutex, count / threadCount, i + 1, logger, error_logger);
+            // Sinyaller başka thread'den geldiği için Qt bunları ana thread'in
+            // olay kuyruğuna koyar; slotlar ana thread'de çalışır.
+            connect(staradder, &StarAdder::starPlaced, this, &GridWindow::onStarPlaced);
             connect(staradder, &StarAdder::starsAdded, this, &GridWindow::onStarsAdded);
+            connect(staradder, &QThread::finished, staradder, &QObject::deleteLater);
             staradder->start();
         }
     } catch (const std::exception& ex) {
@@ -62,16 +66,22 @@ GridWindow::GridWindow() {
     }
 }
 
+void GridWindow::onStarPlaced(int key) {
+    buttonHash[key]->setText("*");
+}
+
 void GridWindow::onStarsAdded() {
-    static bool processed = false;
-    if (!processed) {
-        searchStars(30);
-
-        deleteStars(75);
-        dijkstraAlgorithm(0);
-
-        processed = true;
+    // Her thread bittiğinde çağrılır; işlemler ancak hepsi bitince yapılır
+    if (++finishedThreads < threadCount) {
+        return;
     }
+
+    logger->info("Yıldız ekleme işlemi tamamlandı.");
+
+    searchStars(30);
+
+    deleteStars(75);
+    dijkstraAlgorithm(0);
 }
 
 void GridWindow::dijkstraAlgorithm(int startKey) {
@@ -112,11 +122,12 @@ void GridWindow::dijkstraAlgorithm(int startKey) {
 
     QString result = "Yıldızlar Arası En Kısa Yollar:\n";
     QSet<int> starKeys;
-    auto buttonValues = buttonHash.values();
-    for (int i = 0; i < buttonValues.size(); ++i) {
-        QPushButton* button = buttonValues[i];
-        if (button->text() == "*") {
-            starKeys.insert(buttonHash.key(button));
+    {
+        QMutexLocker locker(&starsMutex);
+        for (auto it = stars.cbegin(); it != stars.cend(); ++it) {
+            if (it.value()) {
+                starKeys.insert(it.key());
+            }
         }
     }
 
@@ -148,9 +159,10 @@ void GridWindow::dijkstraAlgorithm(int startKey) {
 }
 
 void GridWindow::searchStars(int key) {
-    key = key % buttonHash.size();
+    QMutexLocker locker(&starsMutex);
+    key = key % stars.size();
 
-    if (buttonHash.contains(key) && buttonHash[key]->text() == "*") {
+    if (stars.value(key)) {
         logger->info("Search| {}. keyde yıldız bulundu.", key);
         qDebug() << "Search|" << key << ". keyde yıldız bulundu.";
     } else {
@@ -160,8 +172,10 @@ void GridWindow::searchStars(int key) {
 }
 
 void GridWindow::deleteStars(int key) {
-    key = key % buttonHash.size();
-    if (buttonHash.contains(key) && buttonHash[key]->text() == "*") {
+    QMutexLocker locker(&starsMutex);
+    key = key % stars.size();
+    if (stars.value(key)) {
+        stars[key] = false;
         buttonHash[key]->setText("");
         logger->info("Delete| {}. keyde yıldız bulundu ve silindi.", key);
         qDebug() << "Delete|" << key << ". keyde yıldız bulundu ve silindi.";

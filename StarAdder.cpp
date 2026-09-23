@@ -3,8 +3,8 @@
 #include <QRandomGenerator>
 #include <QDebug>
 
-StarAdder::StarAdder(QHash<int, QPushButton*>* buttons, int count, int id, std::shared_ptr<spdlog::logger> log, std::shared_ptr<spdlog::logger> err_log)
-    : buttonHash(buttons), starCount(count), threadId(id), logger(log), error_logger(err_log) {}
+StarAdder::StarAdder(QHash<int, bool>* stars, QMutex* mutex, int count, int id, std::shared_ptr<spdlog::logger> log, std::shared_ptr<spdlog::logger> err_log)
+    : stars(stars), mutex(mutex), starCount(count), threadId(id), logger(log), error_logger(err_log) {}
 
 void StarAdder::run() {
     logger->info("Thread {} baslatıldı.", threadId);
@@ -14,7 +14,7 @@ void StarAdder::run() {
     try {
         while (added < starCount) {
             int originalkey = QRandomGenerator::global()->bounded(0, 2500);
-            int key = originalkey % buttonHash->size();
+            int key = originalkey % stars->size();
             logger->info("Thread {} Orjinal Key: {} | Mod sonrası Key: {}", threadId, originalkey, key);
             qDebug() << "Thread" << threadId << "Orijinal key:" << originalkey << "Mod sonrası key:" << key;
             addStar(key);
@@ -35,10 +35,14 @@ void StarAdder::run() {
 }
 
 void StarAdder::addStar(int key) {
+    // Boş hücre arama ve işaretleme tek adımda yapılmalı; aksi halde iki thread
+    // aynı boş hücreyi görüp oraya aynı anda yıldız koyabilir (race condition).
+    QMutexLocker locker(mutex);
+
     int originalKey = key;
 
-    while (buttonHash->contains(key) && buttonHash->value(key)->text() == "*") {
-        key = (key + 1) % buttonHash->size();
+    while (stars->contains(key) && stars->value(key)) {
+        key = (key + 1) % stars->size();
         qDebug() << "Thread" << threadId << "Anahtar dolu yeni key:" << key;
         if (key == originalKey) {
             logger->warn("Tüm butonlar dolu yıldız eklenmedi çıkış yapıldı.");
@@ -47,9 +51,11 @@ void StarAdder::addStar(int key) {
         }
     }
 
-    if (buttonHash->contains(key)) {
-        buttonHash->value(key)->setText("*");
+    if (stars->contains(key)) {
+        (*stars)[key] = true;
         logger->info("Thread:{} Yıldız ekliyor key : {}", threadId, key);
         qDebug() << "Thread" << threadId << "Yıldız ekliyor Key:" << key;
+        // Butonu bu thread değil, sinyali alan ana thread günceller
+        emit starPlaced(key);
     }
 }
